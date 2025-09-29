@@ -1,7 +1,6 @@
 ---
 - name: Gather and Report Physical Disk Paths
   hosts: all
-  # Facts are still useful for the timestamp on the final report
   gather_facts: true
   become: true
   become_user: root
@@ -39,7 +38,7 @@
 
     - name: 4. 📝 Aggregate data and write to YAML file
       delegate_to: localhost
-      run_once: true
+      when: inventory_hostname == ansible_play_hosts_all[0]
       ansible.builtin.copy:
         content: |
           # Physical Disk by-path report
