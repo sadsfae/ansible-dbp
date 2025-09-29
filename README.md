@@ -1,5 +1,5 @@
 # ansible-dbp
-Ansible Disk By Path (Gathers /dev/disk/by-path) and generates a YAML mapping per host
+Gather all the `/dev/disk/by-path` across all your hosts and generate a YAML report
 
 ## Gather Disks by Path
 This playbook gathers the `/dev/disk/by-path` across hosts in your inventory
