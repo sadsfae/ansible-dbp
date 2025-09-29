@@ -1,8 +1,7 @@
 # ansible-dbp
 Gather all the `/dev/disk/by-path` across all your hosts and generate a YAML report
 
-## Gather Disks by Path
-This playbook gathers the `/dev/disk/by-path` across hosts in your inventory
+[![GHA](https://github.com/sadsfae/ansible-dbp/actions/workflows/ansible-lint.yml/badge.svg)](https://github.com/sadsfae/ansible-dbp/actions)
 
 ## Usage
 
