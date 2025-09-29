@@ -1,0 +1,55 @@
+---
+- name: Gather and Report Physical Disk Paths
+  hosts: all
+  # Facts are still useful for the timestamp on the final report
+  gather_facts: true
+  become: true
+  become_user: root
+
+  tasks:
+    - name: 1. 🔍 Check if /dev/disk/by-path exists
+      ansible.builtin.stat:
+        path: /dev/disk/by-path
+      register: by_path_dir
+
+    - name: 2. 📋 Get by-path links for physical disks using a shell command
+      ansible.builtin.shell:
+        cmd: |
+          set -o pipefail
+          ls -l /dev/disk/by-path/ | awk 'NF>1 && $NF ~ /\.\.\/\.\.\/([svh]d[a-z]+|[xvd]d[a-z]+|nvme[0-9]+n[0-9]+)$/ {print $NF " " $9}'
+      register: disk_links
+      when: by_path_dir.stat.exists and by_path_dir.stat.isdir
+      changed_when: false
+      failed_when: false
+
+    - name: 3. 🧠 Process command output into a fact
+      ansible.builtin.set_fact:
+        host_disk_paths: >
+          {%- set disk_paths = {} -%}
+          {%- for line in disk_links.stdout_lines | default([]) -%}
+            {%- set parts = line.split() -%}
+            {%- if parts | length == 2 -%}
+              {%- set device_name = parts[0] | basename -%}
+              {%- set by_path_link = parts[1] -%}
+              {%- set _ = disk_paths.update({device_name: '/dev/disk/by-path/' + by_path_link}) -%}
+            {%- endif -%}
+          {%- endfor -%}
+          {{ disk_paths }}
+      when: by_path_dir.stat.exists and by_path_dir.stat.isdir
+
+    - name: 4. 📝 Aggregate data and write to YAML file
+      delegate_to: localhost
+      run_once: true
+      ansible.builtin.copy:
+        content: |
+          # Physical Disk by-path report
+          # Generated on: {{ ansible_date_time.iso8601 }}
+          {% set all_hosts_data = {} %}
+          {% for host in ansible_play_hosts_all %}
+            {% if hostvars[host].host_disk_paths is defined and hostvars[host].host_disk_paths %}
+              {% set _ = all_hosts_data.update({host: hostvars[host].host_disk_paths}) %}
+            {% endif %}
+          {% endfor %}
+          {{ all_hosts_data | to_nice_yaml }}
+        dest: "./disk_paths_report.yml"
+        mode: '0644'
