@@ -24,6 +24,7 @@ ansible-playbook -i hosts disk_by_path.yml
 ansible-playbook -i hosts disk_report_playbook.yml -e "root_password='your_password'"
 ```
 ## Example Report
+* A file is generated every run called `disk_paths_report.yml`
 
 ```yaml
 e43-h11-000-r650.example.com:
