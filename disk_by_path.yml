@@ -1,54 +1,57 @@
 ---
-- name: Gather and Report Physical Disk Paths
+- name: Gather Physical Disk Paths from all hosts
   hosts: all
-  gather_facts: true
+  gather_facts: false
   become: true
   become_user: root
 
-  tasks:
-    - name: 1. 🔍 Check if /dev/disk/by-path exists
-      ansible.builtin.stat:
-        path: /dev/disk/by-path
-      register: by_path_dir
+  vars:
+    ansible_become_pass: "{{ root_password | default(omit) }}"
 
-    - name: 2. 📋 Get by-path links for physical disks using a shell command
-      ansible.builtin.shell:
-        cmd: |
-          set -o pipefail
-          ls -l /dev/disk/by-path/ | awk 'NF>1 && $NF ~ /\.\.\/\.\.\/([svh]d[a-z]+|[xvd]d[a-z]+|nvme[0-9]+n[0-9]+)$/ {print $NF " " $9}'
-      register: disk_links
-      when: by_path_dir.stat.exists and by_path_dir.stat.isdir
+  tasks:
+    - name: 1. 📋 Get a single, canonical by-path link for each physical disk
+      ansible.builtin.raw: |
+        if [ -d /dev/disk/by-path ]; then
+          disk_re='\.\./\.\./([svh]d[a-z]+|[xvd]d[a-z]+|nvme[0-9]+n[0-9]+)$'
+          ls -l /dev/disk/by-path/ | \
+          awk -v disk_re="$disk_re" \
+            'NF>1 && $NF ~ disk_re && $9 !~ /-part[0-9]/ {print $NF " " $9}' | \
+          sort -k1,1 -u
+        fi
+      register: raw_disk_data
       changed_when: false
       failed_when: false
 
-    - name: 3. 🧠 Process command output into a fact
-      ansible.builtin.set_fact:
-        host_disk_paths: >
-          {%- set disk_paths = {} -%}
-          {%- for line in disk_links.stdout_lines | default([]) -%}
-            {%- set parts = line.split() -%}
-            {%- if parts | length == 2 -%}
-              {%- set device_name = parts[0] | basename -%}
-              {%- set by_path_link = parts[1] -%}
-              {%- set _ = disk_paths.update({device_name: '/dev/disk/by-path/' + by_path_link}) -%}
-            {%- endif -%}
-          {%- endfor -%}
-          {{ disk_paths }}
-      when: by_path_dir.stat.exists and by_path_dir.stat.isdir
+- name: Aggregate data and generate report
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  become: false
 
-    - name: 4. 📝 Aggregate data and write to YAML file
-      delegate_to: localhost
-      when: inventory_hostname == ansible_play_hosts_all[0]
+  tasks:
+    - name: 2. 📝 Aggregate data and write to YAML file
       ansible.builtin.copy:
         content: |
           # Physical Disk by-path report
-          # Generated on: {{ ansible_date_time.iso8601 }}
+          # Generated on: {{ lookup('pipe', 'date --iso-8601=seconds') }}
           {% set all_hosts_data = {} %}
-          {% for host in ansible_play_hosts_all %}
-            {% if hostvars[host].host_disk_paths is defined and hostvars[host].host_disk_paths %}
-              {% set _ = all_hosts_data.update({host: hostvars[host].host_disk_paths}) %}
-            {% endif %}
+          {% for host in groups['all'] %}
+          {%   set host_data = hostvars[host].raw_disk_data %}
+          {%   if host_data is defined and host_data.stdout %}
+          {%     set disk_paths = {} %}
+          {%     for line in host_data.stdout_lines %}
+          {%       set parts = line.split() %}
+          {%       if parts | length == 2 %}
+          {%         set device_name = parts[0] | basename %}
+          {%         set by_path_link = '/dev/disk/by-path/' + parts[1] %}
+          {%         set _ = disk_paths.update({device_name: by_path_link}) %}
+          {%       endif %}
+          {%     endfor %}
+          {%     if disk_paths %}
+          {%       set _ = all_hosts_data.update({host: disk_paths}) %}
+          {%     endif %}
+          {%   endif %}
           {% endfor %}
-          {{ all_hosts_data | to_nice_yaml }}
+          {{ all_hosts_data | to_nice_yaml(indent=2) }}
         dest: "./disk_paths_report.yml"
         mode: '0644'
