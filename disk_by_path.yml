@@ -4,6 +4,7 @@
   gather_facts: false
   become: true
   become_user: root
+  ignore_unreachable: true
 
   vars:
     ansible_become_pass: "{{ root_password | default(omit) }}"
@@ -28,6 +29,17 @@
   gather_facts: false
   become: false
 
+  vars:
+    unreachable_hosts: >-
+      {%- set unreachable = [] -%}
+      {%- for host in groups['all'] -%}
+      {%-   set task_result = hostvars[host].get('raw_disk_data', {}) -%}
+      {%-   if task_result.unreachable is defined and task_result.unreachable -%}
+      {%-     set _ = unreachable.append(host) -%}
+      {%-   endif -%}
+      {%- endfor -%}
+      {{ unreachable }}
+
   tasks:
     - name: 2. 📝 Aggregate data and write to YAML file
       ansible.builtin.copy:
@@ -36,22 +48,29 @@
           # Generated on: {{ lookup('pipe', 'date --iso-8601=seconds') }}
           {% set all_hosts_data = {} %}
           {% for host in groups['all'] %}
-          {%   set host_data = hostvars[host].raw_disk_data %}
-          {%   if host_data is defined and host_data.stdout %}
-          {%     set disk_paths = {} %}
-          {%     for line in host_data.stdout_lines %}
-          {%       set parts = line.split() %}
-          {%       if parts | length == 2 %}
-          {%         set device_name = parts[0] | basename %}
-          {%         set by_path_link = '/dev/disk/by-path/' + parts[1] %}
-          {%         set _ = disk_paths.update({device_name: by_path_link}) %}
+          {%   if host not in unreachable_hosts %}
+          {%     set host_data = hostvars[host].get('raw_disk_data', {}) %}
+          {%     if 'stdout' in host_data and host_data.stdout %}
+          {%       set disk_paths = {} %}
+          {%       for line in host_data.stdout_lines %}
+          {%         set parts = line.split() %}
+          {%         if parts | length == 2 %}
+          {%           set device_name = parts[0] | basename %}
+          {%           set by_path_link = '/dev/disk/by-path/' + parts[1] %}
+          {%           set _ = disk_paths.update({device_name: by_path_link}) %}
+          {%         endif %}
+          {%       endfor %}
+          {%       if disk_paths %}
+          {%         set _ = all_hosts_data.update({host: disk_paths}) %}
           {%       endif %}
-          {%     endfor %}
-          {%     if disk_paths %}
-          {%       set _ = all_hosts_data.update({host: disk_paths}) %}
           {%     endif %}
           {%   endif %}
           {% endfor %}
           {{ all_hosts_data | to_nice_yaml(indent=2) }}
         dest: "./disk_paths_report.yml"
         mode: '0644'
+
+    - name: 3. 📣 Report unreachable hosts
+      ansible.builtin.debug:
+        msg: "The following hosts were unreachable and were skipped: {{ unreachable_hosts }}"
+      when: unreachable_hosts | length > 0
