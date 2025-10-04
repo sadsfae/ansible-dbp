@@ -21,7 +21,7 @@ ansible-playbook -i hosts disk_by_path.yml
 >
 
 ```bash
-ansible-playbook -i hosts disk_report_playbook.yml -e "root_password=your_password"
+ansible-playbook -i hosts disk_report_playbook.yml -e "root_password='your_password'"
 ```
 ## Example Report
 
