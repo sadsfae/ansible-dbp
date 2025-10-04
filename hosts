@@ -1,2 +1,5 @@
 # hosts here
+# assumes you have SSH keys on remote hosts
+# if not you can use:  https://github.com/sadsfae/ansible-sshkeys
+# otherwise use "-e "root_password=your_password"
 host01.example.com
