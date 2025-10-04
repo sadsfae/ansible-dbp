@@ -41,5 +41,5 @@ e43-h13-000-r650.example.com:
 
 ## Performance
 * Because this does not collect Ansible facts it's pretty fast.
-* In testing it takes about _34 seconds_ for 100+ hosts, or around 2.9 seconds per host.
+* In testing it takes about _34 seconds_ for 100+ hosts.
 * Adjusting Ansible [forks](https://docs.ansible.com/ansible/latest/playbook_guide/playbooks_strategies.html#setting-the-number-of-forks) may significantly speed up the process further.
