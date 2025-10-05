@@ -3,8 +3,9 @@ Gather all the `/dev/disk/by-path` across all your hosts and generate a YAML rep
 
 [![GHA](https://github.com/sadsfae/ansible-dbp/actions/workflows/ansible-lint.yml/badge.svg)](https://github.com/sadsfae/ansible-dbp/actions)
 
-## Requirements
-* Python 2.7 or above on your remote hosts
+## Host Requirements
+* Only an accessible SSH service is required on remote hosts.
+* This should even work on systems without Python installed like appliances.
 
 ## Usage
 
