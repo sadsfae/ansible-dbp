@@ -11,7 +11,7 @@
     ansible_become_pass: "{{ root_password | default(omit) }}"
 
   tasks:
-    - name: 1. 📋 Get a single, canonical by-path link for each physical disk
+    - name: 1. Get a single canonical by-path link for each physical disk
       ansible.builtin.raw: |
         if [ -d /dev/disk/by-path ]; then
           disk_re='\.\./\.\./([svh]d[a-z]+|[xvd]d[a-z]+|nvme[0-9]+n[0-9]+)$'
@@ -42,7 +42,7 @@
       {{ unreachable }}
 
   tasks:
-    - name: 2. 📝 Aggregate data and write to YAML file
+    - name: 2. Aggregate data and write to YAML file
       ansible.builtin.copy:
         content: |
           # Physical Disk by-path report
@@ -71,7 +71,7 @@
         dest: "./disk_paths_report.yml"
         mode: '0644'
 
-    - name: 3. 📣 Report unreachable hosts
+    - name: 3. Report unreachable hosts
       ansible.builtin.debug:
         msg: "The following hosts were unreachable and were skipped: {{ unreachable_hosts }}"
       when: unreachable_hosts | length > 0
