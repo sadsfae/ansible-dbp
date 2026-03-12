@@ -1,5 +1,5 @@
 # ansible-dbp
-Gather all the `/dev/disk/by-path` across all your hosts and generate a YAML report
+Gather all the `/dev/disk/by-path` across all your hosts and generate YAML and JSON reports.
 
 [![GHA](https://github.com/sadsfae/ansible-dbp/actions/workflows/ansible-lint.yml/badge.svg)](https://github.com/sadsfae/ansible-dbp/actions)
 
@@ -13,7 +13,7 @@ Gather all the `/dev/disk/by-path` across all your hosts and generate a YAML rep
 ```bash
 vim hosts
 ```
-* Run it to generate `disk_paths_report.yml`
+* Run it to generate `disk_paths_report.yml` and `disk_paths_report.json`
 ```bash
 ansible-playbook -i hosts disk_by_path.yml
 ```
@@ -25,7 +25,7 @@ ansible-playbook -i hosts disk_by_path.yml
 ansible-playbook -i hosts disk_report_playbook.yml -e "root_password='your_password'"
 ```
 ## Example Report
-* A file is generated every run called `disk_paths_report.yml`
+* Files are generated every run called `disk_paths_report.yml` and `disk_paths_report.json`
 
 ```yaml
 e43-h11-000-r650.example.com:
