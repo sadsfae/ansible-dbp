@@ -69,9 +69,38 @@
           {% endfor %}
           {{ all_hosts_data | to_nice_yaml(indent=2) }}
         dest: "./disk_paths_report.yml"
-        mode: '0644'
+        mode: "0644"
 
-    - name: 3. Report unreachable hosts
+    - name: 3. Aggregate data and write to JSON file
+      ansible.builtin.copy:
+        content: |
+          {% set all_hosts_data = {} %}
+          {% for host in groups['all'] %}
+          {%   if host not in unreachable_hosts %}
+          {%     set host_data = hostvars[host].get('raw_disk_data', {}) %}
+          {%     if 'stdout' in host_data and host_data.stdout %}
+          {%       set disk_paths = {} %}
+          {%       for line in host_data.stdout_lines %}
+          {%         set parts = line.split() %}
+          {%         if parts | length == 2 %}
+          {%           set device_name = parts[0] | basename %}
+          {%           set by_path_link = '/dev/disk/by-path/' + parts[1] %}
+          {%           set _ = disk_paths.update({device_name: by_path_link}) %}
+          {%         endif %}
+          {%       endfor %}
+          {%       if disk_paths %}
+          {%         set _ = all_hosts_data.update({host: disk_paths}) %}
+          {%       endif %}
+          {%     endif %}
+          {%   endif %}
+          {% endfor %}
+          {{ all_hosts_data | to_nice_json(indent=2) }}
+        dest: "./disk_paths_report.json"
+        mode: "0644"
+
+    - name: 4. Report unreachable hosts
       ansible.builtin.debug:
-        msg: "The following hosts were unreachable and were skipped: {{ unreachable_hosts }}"
+        msg: >-
+          The following hosts were unreachable and were skipped:
+          {{ unreachable_hosts }}
       when: unreachable_hosts | length > 0
